@@ -25,17 +25,9 @@ class ProductRequest extends FormRequest
     public function rules()
     {
 
-        if ($this->method() == 'PUT') {
-            return [
-                'title'         => ['required', 'string', 'max:255'],
-                'sku'           => 'required|unique:products,sku,' . $this->route('product'),
-                'description'   => ['nullable', 'string'],
-            ];
-        }
-
         return [
             'title'         => ['required', 'string', 'max:255'],
-            'sku'           => 'required|unique:products,sku|max:255',
+            'sku'           => ['required', 'string', 'max:190', Rule::unique("products", "sku")->ignore($this->route('product'))],
             'description'   => ['nullable', 'string'],
         ];
     }

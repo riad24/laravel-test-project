@@ -11,7 +11,7 @@ class Variant extends Model
     ];
 
 
-    public function variants()
+    public function productVariants()
     {
         return $this->hasMany(ProductVariant::class);
     }

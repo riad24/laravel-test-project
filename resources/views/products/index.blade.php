@@ -5,8 +5,6 @@
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">{{ __('Products') }}</h1>
     </div>
-
-
     <div class="card">
         <form action="{{route('product.filter')}}"  method="GET" class="card-header">
             <div class="form-row justify-content-between">
@@ -19,9 +17,11 @@
                     @if(!blank($variants))
                             @foreach($variants as $variantData)
                                 <optgroup label="{{  $variantData->title }}">
-                                    @foreach($variantData->variants as $variantName)
+                                    @if(!blank($variantData->productVariants))
+                                    @foreach($variantData->productVariants()->select('variant')->groupBy('variant')->get() as $variantName)
                                         <option value="{{ $variantName->variant }}" {{ old('variant',$request->variant) == $variantName->variant ? 'selected':'' }}>{{ $variantName->variant }}</option>
                                     @endforeach
+                                    @endif
                                 </optgroup>
                             @endforeach
                             @endif

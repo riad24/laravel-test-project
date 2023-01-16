@@ -25,7 +25,7 @@ class ProductController extends Controller
     {
         $this->data['products'] = Product::with('productImages','productVariants','productVariantPrices')->orderByDesc('id')->paginate(5);
         $this->data['request'] = $request;
-        $this->data['variants'] = Variant::with('variants')->get();
+        $this->data['variants'] = Variant::with('productVariants')->get();
         return view('products.index',$this->data);
     }
 
@@ -51,7 +51,7 @@ class ProductController extends Controller
 
         })->orderByDesc('id')->paginate(5);
         $this->data['request'] = $request;
-        $this->data['variants'] = Variant::with('variants')->get();
+        $this->data['variants'] = Variant::with('productVariants')->get();
         return view('products.index',$this->data);
     }
 
@@ -94,7 +94,7 @@ class ProductController extends Controller
                                     $variants = new ProductVariant;
                                     $variants->variant = $tag;
                                     $variants->variant_id = $variant['option'];
-                                    $variants->product_id = 8;
+                                    $variants->product_id = $product->id;
                                     $variants->save();
                                     $dataOptions[$variant['option']][] = $variants->id;
                                 }
@@ -151,7 +151,7 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $this->data['variants'] = Variant::all();
-        $this->data['product'] = $product;
+        $this->data['product'] = $product->load('productImages','productVariants','productVariantPrices');
         return view('products.edit', $this->data);
     }
 
@@ -162,59 +162,60 @@ class ProductController extends Controller
      * @param \App\Models\Product $product
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, Product $product)
+    public function update(ProductRequest $request, Product $product)
     {
-        $validator = new ProductRequest();
-        $validator = Validator::make($request->all(), $validator->rules());
-        if (!$validator->fails()) {
-            try {
-                DB::transaction(function () use ($request,$product) {
+        try {
+            DB::transaction(function () use ($request,$product) {
 
-                    $product->title = $request->title;
-                    $product->sku = $request->sku;
-                    $product->description = $request->description;
-                    $product->save();
+                $product->title = $request->title;
+                $product->sku = $request->sku;
+                $product->description = $request->description;
+                $product->save();
 
-                    $dataOptions = [];
-                    if (!blank($request->product_variant)) {
-                        foreach ($request->product_variant as $variant) {
-                            if (!blank($variant['tags'])) {
-                                foreach ($variant['tags'] as $tag) {
-                                    $variants = new ProductVariant;
-                                    $variants->variant = $tag;
-                                    $variants->variant_id = $variant['option'];
-                                    $variants->product_id = 8;
-                                    $variants->save();
-                                    $dataOptions[$variant['option']][] = $variants->id;
-                                }
+                $dataOptions = [];
+                if (!blank($request->product_variant)) {
+                    foreach ($product->productVariants as $post) {
+                        $post->delete();
+                    }
+
+                    foreach ($request->product_variant as $variant) {
+                        if (!blank($variant['tags'])) {
+                            foreach ($variant['tags'] as $tag) {
+                                $variants = new ProductVariant;
+                                $variants->variant = $tag;
+                                $variants->variant_id = $variant['option'];
+                                $variants->product_id = $product->id;
+                                $variants->save();
+                                $dataOptions[$variant['option']][] = $variants->id;
                             }
                         }
                     }
+                }
 
-                    $variantData = array_values($dataOptions);
-                    $variantDataMatrix = $this->crossJoin($variantData);
+                $variantData = array_values($dataOptions);
+                $variantDataMatrix = $this->crossJoin($variantData);
 
-                    if (!blank($request->product_variant_prices)) {
-                        foreach ($request->product_variant_prices as $key => $product_variant_price) {
-                            $productVariantPrice = new ProductVariantPrice;
-                            $productVariantPrice->product_variant_one = isset($variantDataMatrix[$key][0]) ? $variantDataMatrix[$key][0] : null;
-                            $productVariantPrice->product_variant_two = isset($variantDataMatrix[$key][1]) ? $variantDataMatrix[$key][1] : null;
-                            $productVariantPrice->product_variant_three = isset($variantDataMatrix[$key][2]) ? $variantDataMatrix[$key][2] : null;
-                            $productVariantPrice->price = $product_variant_price['price'] ?? 0;
-                            $productVariantPrice->stock = $product_variant_price['stock'] ?? 0;
-                            $productVariantPrice->product_id = $product->id;
-                            $productVariantPrice->save();
-                        }
-
+                if (!blank($request->product_variant_prices)) {
+                    foreach ($product->productVariantPrices as $postPrice) {
+                        $postPrice->delete();
                     }
-                });
-                return response()->json(['success' => 'The product inserted successfully!']);
-            } catch (\Exception $exception) {
-                DB::rollBack();
-                return response()->json(['errors' => $exception->getMessage()]);
-            }
-        }else {
-            return response()->json(['errors' => $validator->errors()]);
+                    foreach ($request->product_variant_prices as $key => $product_variant_price) {
+                        $productVariantPrice = new ProductVariantPrice;
+                        $productVariantPrice->product_variant_one = isset($variantDataMatrix[$key][0]) ? $variantDataMatrix[$key][0] : null;
+                        $productVariantPrice->product_variant_two = isset($variantDataMatrix[$key][1]) ? $variantDataMatrix[$key][1] : null;
+                        $productVariantPrice->product_variant_three = isset($variantDataMatrix[$key][2]) ? $variantDataMatrix[$key][2] : null;
+                        $productVariantPrice->price = $product_variant_price['price'] ?? 0;
+                        $productVariantPrice->stock = $product_variant_price['stock'] ?? 0;
+                        $productVariantPrice->product_id = $product->id;
+                        $productVariantPrice->save();
+                    }
+
+                }
+            });
+            return response()->json(['success' => 'The product update successfully!']);
+        } catch (\Exception $exception) {
+            DB::rollBack();
+            return response()->json(['errors' => $exception->getMessage()]);
         }
     }
 
