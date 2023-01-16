@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProductRequest;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantPrice;
 use App\Models\Variant;
@@ -228,6 +229,24 @@ class ProductController extends Controller
     public function destroy(Product $product)
     {
         //
+    }
+
+    public function imageUpload($request,$product)
+    {
+
+        if($request->hasfile('product_image'))
+        {
+            foreach($request->file('product_image') as $file)
+            {
+                $name = time().rand(1,100).'.'.$file->extension();
+                $file->move(public_path('files'), $name);
+                $file= new ProductImage();
+                $file->file_path = $name;
+                $file->product_id = $product->id;
+                $file->save();
+            }
+        }
+
     }
 
     private function crossJoin($arrays)
